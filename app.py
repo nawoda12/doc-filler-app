@@ -23,9 +23,15 @@ def extract_replacements(email_content):
             key = match.group(1).strip()
             value = match.group(2).strip()
             replacements[f"<{key}>"] = value
+            replacements[f"[{key}]"] = value
+            replacements[key] = value  # for blanks like _____________
+    # Add common blank patterns
+    replacements["_____________"] = replacements.get("Date", "DATE")
+    replacements["_______________________________________________"] = replacements.get("Customer", "CUSTOMER NAME")
+    replacements["______________________________________________ _____________"] = replacements.get("Customer Address", "CUSTOMER ADDRESS")
     return replacements
 
-st.title("📄 Document Auto-Filler")
+st.title("📄 Statement of Work Auto-Filler")
 
 uploaded_file = st.file_uploader("Upload your Word template (.docx)", type="docx")
 email_content = st.text_area("Paste the client email content here")
