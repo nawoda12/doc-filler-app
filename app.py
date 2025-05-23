@@ -26,7 +26,29 @@ def fill_template(template_path, replacements):
         if any(key in original_text for key in replacements.keys()) or original_text.strip() != "":
             para.text = new_text
             for run in para.runs:
-                run.font.color.rgb = RGBColor(0, 0, 0)
+                if "THE MASTER AGREEMENT AND" not in run.text:
+                    run.font.color.rgb = RGBColor(0, 0, 0)
+
+    # Handle tables
+    for table in doc.tables:
+        for row in table.rows:
+            for cell in row.cells:
+                cell_text = cell.text
+                new_cell_text = cell_text
+
+                # Replace placeholders in tables
+                for placeholder, value in replacements.items():
+                    if placeholder in new_cell_text:
+                        new_cell_text = new_cell_text.replace(placeholder, value)
+
+                # Remove unreplaced placeholders and brackets in tables
+                new_cell_text = re.sub(r'<[^>]*>', '', new_cell_text)
+                new_cell_text = re.sub(r'\[[^\]]*\]', '', new_cell_text)
+
+                cell.text = new_cell_text
+                for para in cell.paragraphs:
+                    for run in para.runs:
+                        run.font.color.rgb = RGBColor(0, 0, 0)
 
     return doc
 
