@@ -6,16 +6,34 @@ import re
 def fill_template(template_path, replacements):
     doc = Document(template_path)
     for para in doc.paragraphs:
-        for run in para.runs:
-            for placeholder, value in replacements.items():
-                if placeholder in run.text:
-                    run.text = run.text.replace(placeholder, value)
-                    if run.font.color and run.font.color.rgb == RGBColor(255, 0, 0):
-                        run.font.color.rgb = RGBColor(255, 0, 0)
+        original_text = para.text
+        new_text = original_text
+
+        # Replace placeholders
+        for placeholder, value in replacements.items():
+            if placeholder in new_text:
+                new_text = new_text.replace(placeholder, value)
+
+        # Remove unreplaced placeholders and brackets
+        new_text = re.sub(r'<[^>]*>', '', new_text)
+        new_text = re.sub(r'\[[^\]]*\]', '', new_text)
+
+        # Replace 'xx Hours' if 'Total Estimated Hours' is present
+        if "Total Estimated Hours" in new_text and "xx Hours" in new_text and "Hours" in replacements:
+            new_text = new_text.replace("xx Hours", replacements["Hours"])
+
+        # Remove lines with empty values
+        if any(key in original_text for key in replacements.keys()) or original_text.strip() != "":
+            para.text = new_text
+            for run in para.runs:
+                run.font.color.rgb = RGBColor(0, 0, 0)
+
     return doc
 
 def extract_replacements(email_content):
-    replacements = {}
+    replacements = {
+        "<Name>": "Nawoda Sathsara"
+    }
     lines = email_content.split('\n')
     for line in lines:
         match = re.match(r'(.+?):\s*(.+)', line)
@@ -24,11 +42,12 @@ def extract_replacements(email_content):
             value = match.group(2).strip()
             replacements[f"<{key}>"] = value
             replacements[f"[{key}]"] = value
-            replacements[key] = value  # for blanks like _____________
-    # Add common blank patterns
+            replacements[key] = value
+    # Add common blanks
     replacements["_____________"] = replacements.get("Date", "DATE")
     replacements["_______________________________________________"] = replacements.get("Customer", "CUSTOMER NAME")
     replacements["______________________________________________ _____________"] = replacements.get("Customer Address", "CUSTOMER ADDRESS")
+    replacements["__________________"] = replacements.get("Contract Execution Date", "CONTRACT EXECUTION DATE")
     return replacements
 
 st.title("📄 Statement of Work Auto-Filler")
