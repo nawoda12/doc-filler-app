@@ -1,9 +1,9 @@
 import streamlit as st
 from docx import Document
-from docx.shared import RGBColor
+from docx.shared import RGBColor, Inches
 import re
 
-def fill_template(template_path, replacements):
+def fill_template(template_path, replacements, logo_path=None):
     doc = Document(template_path)
     for para in doc.paragraphs:
         original_text = para.text
@@ -50,6 +50,14 @@ def fill_template(template_path, replacements):
                     for run in para.runs:
                         run.font.color.rgb = RGBColor(0, 0, 0)
 
+    # Insert logo if provided
+    if logo_path:
+        for para in doc.paragraphs:
+            if '[LOGO]' in para.text:
+                para.clear()
+                run = para.add_run()
+                run.add_picture(logo_path, width=Inches(2))
+
     return doc
 
 def extract_replacements(email_content):
@@ -75,11 +83,17 @@ def extract_replacements(email_content):
 st.title("📄 Statement of Work Auto-Filler")
 
 uploaded_file = st.file_uploader("Upload your Word template (.docx)", type="docx")
+logo_file = st.file_uploader("Upload your logo (.png, .jpg)", type=["png", "jpg"])
 email_content = st.text_area("Paste the client email content here")
 
 if uploaded_file and email_content:
     replacements = extract_replacements(email_content)
-    filled_doc = fill_template(uploaded_file, replacements)
+    logo_path = None
+    if logo_file:
+        logo_path = "uploaded_logo." + logo_file.name.split('.')[-1]
+        with open(logo_path, "wb") as f:
+            f.write(logo_file.getbuffer())
+    filled_doc = fill_template(uploaded_file, replacements, logo_path)
     filled_doc_path = "Filled_Statement_of_Work.docx"
     filled_doc.save(filled_doc_path)
 
