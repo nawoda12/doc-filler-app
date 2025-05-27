@@ -2,6 +2,7 @@ import streamlit as st
 from docx import Document
 from docx.shared import RGBColor, Inches
 import re
+from datetime import datetime
 
 def fill_template(template_path, replacements, logo_path=None):
     doc = Document(template_path)
@@ -75,9 +76,10 @@ def extract_replacements(email_content):
             replacements[key] = value
     # Add common blanks
     replacements["_____________"] = replacements.get("Date", "DATE")
-    replacements["_______________________________________________"] = replacements.get("Customer", "CUSTOMER NAME")
-    replacements["______________________________________________ _____________"] = replacements.get("Customer Address", "CUSTOMER ADDRESS")
+    replacements["_______________________________________________"] = replacements.get("Customer", "XYZ Co.")
+    replacements["______________________________________________ _____________"] = replacements.get("Customer Address", "330, Flatbush Avenue, Brooklyn, New York 11238, USA")
     replacements["__________________"] = replacements.get("Contract Execution Date", "CONTRACT EXECUTION DATE")
+    replacements["[year]"] = str(datetime.now().year)
     return replacements
 
 st.title("📄 Statement of Work Auto-Filler")
