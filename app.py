@@ -3,9 +3,11 @@ from datetime import datetime
 
 def replace_placeholders(text, email_content):
     # Replace company name and address in the agreement paragraph
-    text = re.sub(r'dated _____________, is between _______________________________________________ \("Customer"\), with offices at ________________________________________________ _____________, USA',
-                  'dated _____________, is between XYZ Co. ("Customer"), with offices at 330, Flatbush Avenue, Brooklyn, New York 11238, USA',
-                  text)
+    text = re.sub(
+        r'dated _____________, is between _______________________________________________ \("Customer"\), with offices at ________________________________________________ _____________, USA',
+        'dated _____________, is between XYZ Co. ("Customer"), with offices at 330, Flatbush Avenue, Brooklyn, New York 11238, USA',
+        text
+    )
 
     # Replace scope section
     scope_pattern = r'\[Add the services that are within the scope of this SOW\]\n\[If this SOW is for an extension, add the following sentences. If not, delete it.\nThe initial SOW for this task was executed in <Month> <Year>. This SOW is for an extension of the <date/scope/number of hours>.\]'
@@ -30,26 +32,7 @@ def replace_placeholders(text, email_content):
     # Preserve "Name :" exactly
     text = re.sub(r'Name\s*:', 'Name :', text)
 
-    # Keep "THE MASTER AGREEMENT AND" in original color
+    # Keep "THE MASTER AGREEMENT AND" in red
     text = re.sub(r'(THE MASTER AGREEMENT AND)', r'<span style="color:red;">\1</span>', text)
 
     return text
-
-# Example usage
-if __name__ == "__main__":
-    email_content = {
-        'scope': 'This SOW includes development, testing, and deployment of the new analytics dashboard. The initial SOW for this task was executed in January 2025. This SOW is for an extension of 40 hours.',
-        'hours': '40',
-        'assumptions': 'Customer will provide access to required systems and documentation.',
-        'resources': 'ABC will assign John Doe (Developer) and Jane Smith (QA Analyst) to complete this project.'
-    }
-
-    with open('sow_document.txt', 'r') as file:
-        sow_text = file.read()
-
-    updated_text = replace_placeholders(sow_text, email_content)
-
-    with open('updated_sow_document.txt', 'w') as file:
-        file.write(updated_text)
-
-    print("SOW document updated successfully.")
