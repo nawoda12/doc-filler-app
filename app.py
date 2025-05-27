@@ -1,38 +1,106 @@
+import streamlit as st
+from docx import Document
+from docx.shared import RGBColor, Inches
 import re
-from datetime import datetime
 
-def replace_placeholders(text, email_content):
-    # Replace company name and address in the agreement paragraph
-    text = re.sub(
-        r'dated _____________, is between _______________________________________________ \("Customer"\), with offices at ________________________________________________ _____________, USA',
-        'dated _____________, is between XYZ Co. ("Customer"), with offices at 330, Flatbush Avenue, Brooklyn, New York 11238, USA',
-        text
-    )
+def fill_template(template_path, replacements, logo_path=None):
+    doc = Document(template_path)
+    for para in doc.paragraphs:
+        original_text = para.text
+        new_text = original_text
 
-    # Replace scope section
-    scope_pattern = r'\[Add the services that are within the scope of this SOW\]\n\[If this SOW is for an extension, add the following sentences. If not, delete it.\nThe initial SOW for this task was executed in <Month> <Year>. This SOW is for an extension of the <date/scope/number of hours>.\]'
-    text = re.sub(scope_pattern, email_content['scope'], text)
-    text = re.sub(r'xx', email_content['hours'], text)
+        # Replace placeholders
+        for placeholder, value in replacements.items():
+            if placeholder in new_text:
+                new_text = new_text.replace(placeholder, value)
 
-    # Replace assumptions section
-    assumptions_pattern = r'•\s*\[Add any assumptions/limitations here. If there aren’t any, delete the entire box.\]'
-    if email_content['assumptions']:
-        text = re.sub(assumptions_pattern, f'• {email_content["assumptions"]}', text)
-    else:
-        text = re.sub(r'Assumptions and Limitations:\n•\s*\[Add any assumptions/limitations here. If there aren’t any, delete the entire box.\]\n?', '', text)
+        # Remove unreplaced placeholders and brackets
+        new_text = re.sub(r'<[^>]*>', '', new_text)
+        new_text = re.sub(r'\[[^\]]*\]', '', new_text)
 
-    # Replace resource assignment section
-    resources_pattern = r'\[If there are specific resources/roles working for this SOW, mention them along with the following sentence:\nABC will assign the following resources to complete this project.\]'
-    text = re.sub(resources_pattern, email_content['resources'], text)
+        # Replace 'xx Hours' if 'Total Estimated Hours' is present
+        if "Total Estimated Hours" in new_text and "xx Hours" in new_text and "Hours" in replacements:
+            new_text = new_text.replace("xx Hours", replacements["Hours"])
 
-    # Replace [year] with actual year
-    current_year = str(datetime.now().year)
-    text = re.sub(r'\[year\]', current_year, text)
+        # Remove lines with empty values
+        if any(key in original_text for key in replacements.keys()) or original_text.strip() != "":
+            para.text = new_text
+            for run in para.runs:
+                if "THE MASTER AGREEMENT AND" not in run.text:
+                    run.font.color.rgb = RGBColor(0, 0, 0)
 
-    # Preserve "Name :" exactly
-    text = re.sub(r'Name\s*:', 'Name :', text)
+    # Handle tables
+    for table in doc.tables:
+        for row in table.rows:
+            for cell in row.cells:
+                cell_text = cell.text
+                new_cell_text = cell_text
 
-    # Keep "THE MASTER AGREEMENT AND" in red
-    text = re.sub(r'(THE MASTER AGREEMENT AND)', r'<span style="color:red;">\1</span>', text)
+                # Replace placeholders in tables
+                for placeholder, value in replacements.items():
+                    if placeholder in new_cell_text:
+                        new_cell_text = new_cell_text.replace(placeholder, value)
 
-    return text
+                # Remove unreplaced placeholders and brackets in tables
+                new_cell_text = re.sub(r'<[^>]*>', '', new_cell_text)
+                new_cell_text = re.sub(r'\[[^\]]*\]', '', new_cell_text)
+
+                cell.text = new_cell_text
+                for para in cell.paragraphs:
+                    for run in para.runs:
+                        run.font.color.rgb = RGBColor(0, 0, 0)
+
+    # Insert logo if provided
+    if logo_path:
+        for para in doc.paragraphs:
+            if '[LOGO]' in para.text:
+                para.clear()
+                run = para.add_run()
+                run.add_picture(logo_path, width=Inches(2))
+
+    return doc
+
+def extract_replacements(email_content):
+    replacements = {
+        "<Name>": "Nawoda Sathsara"
+    }
+    lines = email_content.split('\n')
+    for line in lines:
+        match = re.match(r'(.+?):\s*(.+)', line)
+        if match:
+            key = match.group(1).strip()
+            value = match.group(2).strip()
+            replacements[f"<{key}>"] = value
+            replacements[f"[{key}]"] = value
+            replacements[key] = value
+    # Add common blanks
+    replacements["_____________"] = replacements.get("Date", "DATE")
+    replacements["_______________________________________________"] = replacements.get("Customer", "CUSTOMER NAME")
+    replacements["______________________________________________ _____________"] = replacements.get("Customer Address", "CUSTOMER ADDRESS")
+    replacements["__________________"] = replacements.get("Contract Execution Date", "CONTRACT EXECUTION DATE")
+    return replacements
+
+st.title("📄 Statement of Work Auto-Filler")
+
+uploaded_file = st.file_uploader("Upload your Word template (.docx)", type="docx")
+logo_file = st.file_uploader("Upload your logo (.png, .jpg)", type=["png", "jpg"])
+email_content = st.text_area("Paste the client email content here")
+
+if uploaded_file and email_content:
+    replacements = extract_replacements(email_content)
+    logo_path = None
+    if logo_file:
+        logo_path = "uploaded_logo." + logo_file.name.split('.')[-1]
+        with open(logo_path, "wb") as f:
+            f.write(logo_file.getbuffer())
+    filled_doc = fill_template(uploaded_file, replacements, logo_path)
+    filled_doc_path = "Filled_Statement_of_Work.docx"
+    filled_doc.save(filled_doc_path)
+
+    with open(filled_doc_path, "rb") as file:
+        st.download_button(
+            label="📥 Download Filled Document",
+            data=file,
+            file_name="Filled_Statement_of_Work.docx",
+            mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+        )
