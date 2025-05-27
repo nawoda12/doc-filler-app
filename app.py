@@ -2,53 +2,55 @@ import streamlit as st
 from docx import Document
 from docx.shared import RGBColor, Inches
 import re
-from datetime import datetime
 
 def fill_template(template_path, replacements, logo_path=None):
     doc = Document(template_path)
-
-    def replace_text_in_paragraph(paragraph, replacements):
-        original_text = paragraph.text
+    for para in doc.paragraphs:
+        original_text = para.text
         new_text = original_text
 
+        # Replace placeholders
         for placeholder, value in replacements.items():
             if placeholder in new_text:
                 new_text = new_text.replace(placeholder, value)
 
+        # Remove unreplaced placeholders and brackets
         new_text = re.sub(r'<[^>]*>', '', new_text)
         new_text = re.sub(r'\[[^\]]*\]', '', new_text)
 
+        # Replace 'xx Hours' if 'Total Estimated Hours' is present
         if "Total Estimated Hours" in new_text and "xx Hours" in new_text and "Hours" in replacements:
             new_text = new_text.replace("xx Hours", replacements["Hours"])
 
+        # Remove lines with empty values
         if any(key in original_text for key in replacements.keys()) or original_text.strip() != "":
-            paragraph.text = new_text
-            for run in paragraph.runs:
+            para.text = new_text
+            for run in para.runs:
                 if "THE MASTER AGREEMENT AND" not in run.text:
                     run.font.color.rgb = RGBColor(0, 0, 0)
 
-    def replace_text_in_cell(cell, replacements):
-        for paragraph in cell.paragraphs:
-            replace_text_in_paragraph(paragraph, replacements)
-
-    for para in doc.paragraphs:
-        replace_text_in_paragraph(para, replacements)
-
+    # Handle tables
     for table in doc.tables:
         for row in table.rows:
             for cell in row.cells:
-                replace_text_in_cell(cell, replacements)
+                cell_text = cell.text
+                new_cell_text = cell_text
 
-    # Replace text in text boxes (shapes)
-    for shape in doc.inline_shapes:
-        if shape.type == 3:  # Text box
-            try:
-                text_box = shape._inline.graphic.graphicData.txbxContent
-                for paragraph in text_box.paragraphs:
-                    replace_text_in_paragraph(paragraph, replacements)
-            except Exception:
-                continue
+                # Replace placeholders in tables
+                for placeholder, value in replacements.items():
+                    if placeholder in new_cell_text:
+                        new_cell_text = new_cell_text.replace(placeholder, value)
 
+                # Remove unreplaced placeholders and brackets in tables
+                new_cell_text = re.sub(r'<[^>]*>', '', new_cell_text)
+                new_cell_text = re.sub(r'\[[^\]]*\]', '', new_cell_text)
+
+                cell.text = new_cell_text
+                for para in cell.paragraphs:
+                    for run in para.runs:
+                        run.font.color.rgb = RGBColor(0, 0, 0)
+
+    # Insert logo if provided
     if logo_path:
         for para in doc.paragraphs:
             if '[LOGO]' in para.text:
@@ -71,11 +73,11 @@ def extract_replacements(email_content):
             replacements[f"<{key}>"] = value
             replacements[f"[{key}]"] = value
             replacements[key] = value
+    # Add common blanks
     replacements["_____________"] = replacements.get("Date", "DATE")
-    replacements["_______________________________________________"] = replacements.get("Customer", "XYZ Co.")
-    replacements["______________________________________________ _____________"] = replacements.get("Customer Address", "330, Flatbush Avenue, Brooklyn, New York 11238, USA")
+    replacements["_______________________________________________"] = replacements.get("Customer", "CUSTOMER NAME")
+    replacements["______________________________________________ _____________"] = replacements.get("Customer Address", "CUSTOMER ADDRESS")
     replacements["__________________"] = replacements.get("Contract Execution Date", "CONTRACT EXECUTION DATE")
-    replacements["[year]"] = str(datetime.now().year)
     return replacements
 
 st.title("📄 Statement of Work Auto-Filler")
