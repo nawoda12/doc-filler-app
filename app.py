@@ -3,6 +3,7 @@ from docx import Document
 from docx.shared import RGBColor, Inches
 import re
 from datetime import datetime
+from docx.opc.constants import RELATIONSHIP_TYPE as RT
 
 def fill_template(template_path, replacements, logo_path=None):
     doc = Document(template_path)
@@ -39,7 +40,6 @@ def fill_template(template_path, replacements, logo_path=None):
             for cell in row.cells:
                 replace_text_in_cell(cell, replacements)
 
-    # Replace text in text boxes (shapes)
     for shape in doc.inline_shapes:
         if shape.type == 3:  # Text box
             try:
@@ -49,12 +49,17 @@ def fill_template(template_path, replacements, logo_path=None):
             except Exception:
                 continue
 
-    # Replace the first image (logo) with the uploaded one
     if logo_path:
-        for rel in doc.part._rels:
-            rel_obj = doc.part._rels[rel]
-            if "image" in rel_obj.reltype:
-                rel_obj._target = logo_path
+        for shape in doc.inline_shapes:
+            if shape.type == 8:  # Picture
+                inline = shape._inline
+                graphic = inline.graphic
+                graphic_data = graphic.graphicData
+                pic = graphic_data.pic
+                blip_fill = pic.blipFill
+                blip = blip_fill.blip
+                new_rId = doc.part.relate_to(logo_path, RT.IMAGE)
+                blip.embed = new_rId
                 break
 
     return doc
@@ -81,7 +86,7 @@ def extract_replacements(email_content):
 
 def get_document_preview(doc):
     preview = ""
-    for para in doc.paragraphs[:10]:  # Preview first 10 paragraphs
+    for para in doc.paragraphs[:10]:
         preview += para.text + "\n"
     return preview
 
@@ -101,8 +106,10 @@ if uploaded_file and email_content:
 
     filled_doc = fill_template(uploaded_file, replacements, logo_path)
 
+    st.subheader("📄 Document Preview")
+    preview_text = get_document_preview(filled_doc)
+    st.text_area("Preview (first 10 paragraphs)", preview_text, height=300)
 
-    # Save and offer download
     filled_doc_path = "Filled_Statement_of_Work.docx"
     filled_doc.save(filled_doc_path)
 
