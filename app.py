@@ -101,10 +101,6 @@ if uploaded_file and email_content:
 
     filled_doc = fill_template(uploaded_file, replacements, logo_path)
 
-    # Show preview
-    st.subheader("📄 Document Preview")
-    preview_text = get_document_preview(filled_doc)
-    st.text_area("Preview (first 10 paragraphs)", preview_text, height=300)
 
     # Save and offer download
     filled_doc_path = "Filled_Statement_of_Work.docx"
