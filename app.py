@@ -49,12 +49,13 @@ def fill_template(template_path, replacements, logo_path=None):
             except Exception:
                 continue
 
+    # Replace the first image (logo) with the uploaded one
     if logo_path:
-        for para in doc.paragraphs:
-            if '[LOGO]' in para.text:
-                para.clear()
-                run = para.add_run()
-                run.add_picture(logo_path, width=Inches(2))
+        for rel in doc.part._rels:
+            rel_obj = doc.part._rels[rel]
+            if "image" in rel_obj.reltype:
+                rel_obj._target = logo_path
+                break
 
     return doc
 
@@ -78,6 +79,12 @@ def extract_replacements(email_content):
     replacements["[year]"] = str(datetime.now().year)
     return replacements
 
+def get_document_preview(doc):
+    preview = ""
+    for para in doc.paragraphs[:10]:  # Preview first 10 paragraphs
+        preview += para.text + "\n"
+    return preview
+
 st.title("📄 Statement of Work Auto-Filler")
 
 uploaded_file = st.file_uploader("Upload your Word template (.docx)", type="docx")
@@ -91,7 +98,15 @@ if uploaded_file and email_content:
         logo_path = "uploaded_logo." + logo_file.name.split('.')[-1]
         with open(logo_path, "wb") as f:
             f.write(logo_file.getbuffer())
+
     filled_doc = fill_template(uploaded_file, replacements, logo_path)
+
+    # Show preview
+    st.subheader("📄 Document Preview")
+    preview_text = get_document_preview(filled_doc)
+    st.text_area("Preview (first 10 paragraphs)", preview_text, height=300)
+
+    # Save and offer download
     filled_doc_path = "Filled_Statement_of_Work.docx"
     filled_doc.save(filled_doc_path)
 
