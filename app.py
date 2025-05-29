@@ -19,15 +19,15 @@ def fill_template(template_path, replacements, logo_path=None):
         new_text = re.sub(r'\[[^\]]*\]', '', new_text)
 
         # Replace 'xx Hours' if 'Total Estimated Hours' is present
-        if "Total Estimated Hours" in new_text and "xx Hours" in new_text and "Hours" in replacements:
-            new_text = new_text.replace("xx Hours", replacements["Hours"])
+        if "Total Estimated Hours" in new_text and "xx Hours" in new_text and "xx" in replacements:
+            new_text = new_text.replace("xx Hours", replacements["xx"])
 
         # Remove lines with empty values
         if any(key in original_text for key in replacements.keys()) or original_text.strip() != "":
             para.text = new_text
             for run in para.runs:
                 if "THE MASTER AGREEMENT AND" not in run.text:
-                    run.font.color.rgb = RGBColor(0, 0, 0)
+                    run.font.color.rgb = RGBColor(255, 0, 0)
 
     # Handle tables
     for table in doc.tables:
